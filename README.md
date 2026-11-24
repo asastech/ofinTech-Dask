@@ -42,7 +42,7 @@ workspace to the month-end close. It covers connecting a model, importing the ge
 overview, statements and KPIs, the assistant (with approvals and cited sources), evidence-linked workbooks,
 dashboards, cost centres, the close, workflows, connections, memory, search and permissions.
 
-It was recorded on version 1.3.0 with the [Harbor Line Logistics demo company](examples/demo-company/README.md), so you
+recorded on version 1.3.0 with the [Harbor Line Logistics demo company](examples/demo-company/README.md), so you
 can follow along on the same books. The assistant's replies come from the test model in `e2e/`; every figure,
 search, approval and workbook comes from the product itself.
 
