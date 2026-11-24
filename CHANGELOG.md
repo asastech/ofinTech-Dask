@@ -5,13 +5,120 @@ migrations are applied automatically on start-up and are never rewritten once re
 
 ## Unreleased
 
+## 1.5.0 — 2026-11-24
+
 ### Added
+
+- **What moved a month's profit, what was posted on an account and what an entry holds are read from the ledger,
+  not worked out by the model.** On 24 Nov 2026, after the closed questions of the day before had been moved
+  into code, three answers on the same invented company were still only half right. Asked what caused its one
+  loss-making month, each model compared the month with an average it had worked out itself, a different one on
+  each run, and named no account. Asked what zakat had been paid, one said the books held nothing while the
+  entry was there. Asked for a credit note's amount before VAT, one gave the total with the VAT in it. Three
+  read-only tools now return what the ledger holds. `profit_drivers` sets a month's profit and loss against the
+  average of the months before it (six unless asked otherwise), the month before it or the same month a year
+  earlier, line by line and account by account, each with its effect on net profit, says which baseline it used
+  and which months it covers, and lists the months of the last twelve that made a loss; the effects add up to
+  the change in net profit. `account_activity` gives one account between two months: its balance at the start
+  and the end, total debits and credits, every line with the other accounts of its entry, and how much was paid
+  from or received into the bank in the same entry. `ledger_entries` gives whole entries, by number or by words
+  found in an entry's type, descriptions, parties or account names, and reads an invoice, bill or credit note
+  with a sales-tax line as amount before tax, tax and total. An account or an entry written in one language is
+  found when asked for in another (VAT, zakat, credit note, sales returns, rent, loan), the more specific meaning
+  first, and only on whole words. An account that is not there gets the chart of accounts back and no figure;
+  a month the ledger does not cover, or a baseline it does not hold, is refused. The rules send the model to
+  them and tell it to say the books do not show something only after one of them found nothing.
+
+- **A bank statement is reconciled in code, not by the model.** Asked to hold a statement against the books, the
+  assistant had only the dataset query to work with. On 23 and 24 Nov 2026 one model took the statement's
+  highest balance for its closing balance, and another ran sixteen queries and stopped without an answer. The
+  new read-only tool `bank_reconciliation` takes a statement dataset and the general ledger's bank account for
+  one month and returns the statement's closing balance (its last row, in row order), the ledger's, the
+  difference, every movement in the ledger and not on the statement, every movement on the statement and not in
+  the ledger, and how much of the difference those explain, with the unexplained remainder. Movements are matched
+  on direction and amount to the cent: on the same date, then within three days, then on the amount alone within
+  the month, and those last are listed for a second look. It finds the statement's columns by the names banks
+  use in English, Arabic, Spanish and French, reads a signed amount column or money in and money out, and says
+  so when the opening balances differ instead of spreading that over the month. It posts nothing, proposes no
+  entry, carries no score and learns nothing from what the accountant then decides. The `bank-reconciliation`
+  skill (now 1.1.0) sends the model to it first.
+- **A what-if on profit applies the direction of each change itself.** Asked what October's net profit becomes
+  once a rent that was never booked is booked and a bill entered twice is removed, one model added both amounts
+  and one subtracted both; the second had just written, in words, which way each one goes. `calc_what_if` takes
+  the profit as it stands and each change with its size and what it is (`cost_added`, `cost_removed`,
+  `income_added`, `income_removed`), applies the signs, and with revenue gives the margin before and after.
+
+- **Asked what it can do, the assistant reads the answer instead of recalling it.** A step of a conversation is
+  sent only the tool groups it needs, so a model asked for its tools listed what it had been shown and filled in
+  the rest: "53" on 24 Nov 2026, with adding a bank transfer, a deposit and a withdrawal among them, in a product
+  that moves no money. `list_capabilities` returns what the registry holds for the workspace and the person
+  asking: how many tools, in which groups, what each does, which run only after a person approves them, and that
+  none pays or transfers. It is sent with every step, and the rules tell the model to answer from it and to name
+  nothing that is not in it. As with every rule, that holds as far as the model follows it.
+
+### Changed
+
+- **A calculator's result is evidence only when what went into it has a source.** The figure check treated every
+  calculator result as verified, so a model that multiplied a balance by a rate of its own choosing got a
+  checked figure: "Zakat due" on 24 Nov 2026, on a base and a rate nobody had given it. For `calc_arithmetic`
+  and `calc_what_if`, each number passed in must now appear in another tool's result, in the user's messages, in
+  an approved memory or in an earlier sound calculation, or be a plain constant of arithmetic (whole numbers to
+  12, 100, 365 and the like). If one does not, the result is not evidence: a figure in the answer that rests on
+  it is marked "check before relying on", and the numbers that came from nowhere are stored with the answer as
+  `unsourced_inputs` and shown under it. The financial calculators (NPV, loan schedules, depreciation), whose
+  parameters a person chooses, are not held to this.
+- **The same call again and again now ends the turn in an answer.** A repeated read was already served from its
+  earlier result instead of being run again; that bounded the load and not the loop, and a model that asked the
+  calculator for one figure fifteen times ended at the step limit with no answer. After two such repeats the
+  next model call carries no tools and an instruction to answer from the results it has or to say what is
+  missing. A model that still calls a tool it was not offered gets a result that says nothing was run, and a
+  second such step stops the turn with an error that says why ("kept asking for the same result"), after six
+  model calls instead of sixteen.
+- **The rules on tax.** The assistant does not say whether a return or filing is correct, and does not work out
+  the zakat, income tax or other tax due for a period on a base or a rate of its own choosing; it can state what
+  the ledger shows (a tax account's balance, what was paid), and when the user gives both the base and the rate
+  it can do that arithmetic, said to be arithmetic on their figures. This is a rule in the prompt, so it holds
+  as far as the model follows it; the check on calculator inputs above is what holds when it does not.
+
+### Fixed
+
+- **An unusual amount is held against the months the ledger has, and says how many.** `ledger_anomalies` wrote
+  "over the previous six months" under every unusual amount, also in a ledger with four or five months before
+  the one asked about, where the average is over those. It now names the number it averaged.
+
+- **Numbers a calculation was given without a source are shown under the answer they belong to, and no other.**
+  The first day the check ran in the Desk (24 Nov 2026), two averages a model had worked out itself and handed to
+  the calculator in its second answer were shown again under the third, fourth, fifth and sixth answers of the
+  conversation, whose own calculations were sound. Every calculation of the conversation is still judged, so an
+  unsound one never becomes evidence later; only those made since the user's latest message are reported.
+- **A count in an answer is traced to a bare number in a tool result.** The anomaly report says "4 found"; an
+  answer that listed the four and called them "4 items" was marked "check before relying on: 4 items", because
+  numbers under 100 without a unit were dropped from the evidence as well as from the answer. They are kept in
+  the evidence now, and support counts only: never an amount, a percentage or a ratio.
+
+## 1.4.0 — 2026-11-23
+
+### Added
+
+- **The assistant reads the statements pages instead of rebuilding them, and no longer does its own sums.** The
+  Statements, Receivables, Payables and Anomalies pages are computed from the general ledger, and the assistant
+  had no tool for any of them and no plain calculator. Asked for a month's net profit, or for what customers had
+  owed for more than 90 days, it queried the ledger lines and did the arithmetic itself, and could state a figure
+  that disagreed with the page the user had open (the figure check marked those answers "check before relying
+  on", which is how it was seen). Four read-only tools close that: `financial_statements` (profit and loss,
+  balance sheet, cash flow, by month), `ageing_report` (receivables or payables by party, aged), `ledger_anomalies`
+  and `calc_arithmetic` (add, subtract, multiply, divide, percentage, percentage change, average, in exact
+  decimals). They are offered whenever the workspace has a ledger, whatever words the question used, and the
+  rules now say to state those figures as given and never to do arithmetic unaided. What they return is checked
+  against the pages' own routes to the cent (`engine/tests/test_assistant_reads_statements.py`). Whether a given
+  model then uses them is the model's doing: a small or fine-tuned model that was never shown these tools may
+  still reach for `query_dataset`, and the figure check stays in place for that.
 
 - **One line installs Desk, and a release publishes the image.** Getting the Team Server up meant cloning the
   repository, generating a key by hand with a line of Python, editing a `.env` and building the image on the
   machine — a quarter of an hour and a Docker build for somebody who only wanted to look at it. A `vX.Y.Z` tag
-  now publishes the image to `ofintech0/ofintech-desk` and `ghcr.io/ofintech/ofintech-desk`, for `linux/amd64`
-  and `linux/arm64`, tagged with the version, `X.Y`, `latest` and `sha-<short>`; `latest` and `X.Y` move only
+  now publishes the image to `ofintech0/ofintech-desk` on Docker Hub, for `linux/amd64` and `linux/arm64`,
+  tagged with the version, `X.Y`, `latest` and `sha-<short>`; `latest` and `X.Y` move only
   for a plain release. `scripts/install.sh` pulls it, writes a compose file and a key, starts it on
   `http://localhost:8700` and waits until it answers:
 
@@ -45,6 +152,13 @@ migrations are applied automatically on start-up and are never rewritten once re
 
 ### Fixed
 
+- **The Team Server image build no longer fails when a mirror drops one download.** The layer that installs the
+  operating-system packages ran entirely with apt's retries off, the mitigation for CVE-2026-109518 while the
+  apt doing the fetching is still the vulnerable one. That covered about a hundred packages, so one connection
+  reset on one of them failed the build: the arm64 build on `main` on 22 Nov 2026, on a merge that had not
+  touched the image. The layer now fetches only apt itself with retries off, stops unless apt is then at 3.0.4
+  or later, and installs the rest with the fixed apt and three retries.
+
 - **Settings → Models tested a model nobody chose, and chose one nobody asked for.** *Test* asked the first model
   in a provider's list, whatever the workspace was using, and picking a provider in *Default provider* or *Model
   for short jobs* silently saved that same first model. For a provider that lists two models that was a guess;
@@ -54,6 +168,16 @@ migrations are applied automatically on start-up and are never rewritten once re
   tooltip which one that is. Picking a provider keeps the model in use if the provider lists it, takes the only
   model if there is one, and otherwise saves nothing until the model is named. A "not found" answer names the
   model that was asked.
+
+- **A correct answer in Arabic is no longer marked "check before relying on".** Arabic joins "and" to the word
+  after it, so an answer writes `و79,605.55`. The figure check refused to start a number after a letter, started
+  three characters later instead, and reported an unknown figure `605.55`: a right answer carried a warning about
+  a number nobody wrote, and a wrong one would have been reported by its tail. A figure may now follow a letter
+  that is not Latin, and never starts after "digit, comma". The Arabic percent sign `٪` is read as a percentage.
+- **The assistant can see a payment that settled no invoice.** The Receivables and Payables pages keep an
+  "unapplied" amount per party (an advance, an overpayment); the `ageing_report` tool left that column out, so
+  asked whether a customer had paid in advance the assistant could only say the data did not show it. The tool
+  now carries the column and names each party and amount, or says there are none.
 
 ## 1.3.0 — 2026-11-11
 
